@@ -7,7 +7,7 @@ IEnumerable<(int, int)> neighbors(int r, int c) {
 
 void Inc<T>(IDictionary<T, int> mp, T key) {
     if (mp.TryGetValue(key, out var v)) mp[key] = v + 1;
-    else mp.Add(v, 1);
+    else mp.Add(key, 1);
 }
 
 void Dec<T>(IDictionary<T, int> mp, T key) {

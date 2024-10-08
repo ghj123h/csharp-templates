@@ -1,10 +1,10 @@
 public static class StringExt {
-    public static int[] GetNext(string s) {
+    public static int[] GetPi(string s) {
         int n = s.Length;
         int[] res = new int[n];
         for (int i = 1; i < n; ++i) {
             int j = res[i-1];
-            while (j > 0 && s[i] != s[j]) j = res[i-1];
+            while (j > 0 && s[i] != s[j]) j = res[j-1];
             if (s[i] == s[j]) ++j;
             res[i] = j;
         }
@@ -12,6 +12,7 @@ public static class StringExt {
     }
 
     public static int[] GetZ(this string s) {
+        int n = s.Length;
         int[] z = new int[n];
         for (int i = 1, l = 0, r = 0; i < n; ++i) {
             if (i <= r && z[i - l] < r - i + 1) z[i] = z[i-l];
@@ -24,37 +25,81 @@ public static class StringExt {
         return z;
     }
 
-    public static (int[], int[]) GetSuffixArray(this string s) {
-        int m = 127, n = s.Length, p;
-        s = "0" + s;
-        int[] rk = new int[2*n+1], sa = new int[2*n+1], id = new int[n+1];
-        int[] cnt = new int[Math.Max(128,n+1)], oldrk = new int[2*n+1];
-        for (int i = 1; i <= n; ++i) ++cnt[rk[i] = (int)s[i]];
-        for (int i = 1; i <= m; ++i) cnt[i] += cnt[i-1];
-        for (int i = n; i >= 1; --i) sa[cnt[rk[i]]--] = i;
+    public static int[] GetSuffixArray(this string s) => s.SAIS(26, c => c - 'a')[1..^0];
+    public static int[] SAIS(this string s, int sig, Func<char, int> h) {
+        return Sub(s.Select(c => h(c) + 1).Append(0).ToArray(), s.Length + 1, sig);
 
-        for (int w = 1; ; w <<= 1, m = p) {
-            int cur = 0;
-            for (int i = n - w + 1; i <= n; ++i) id[++cur] = i;
-            for (int i = 1; i <= n; ++i) if (sa[i] > w) id[++cur] = sa[i] - w;
-            Array.Fill(cnt, 0);
-            for (int i = 1; i <= n; ++i) ++cnt[rk[i]];
-            for (int i = 1; i <= m; ++i) cnt[i] += cnt[i-1];
-            for (int i = n; i >= 1; --i) sa[cnt[rk[id[i]]]--] = id[i];
-            p = 0;
-            (oldrk, rk) = (rk, oldrk);
-            for (int i = 1; i <= n; ++i)
-                if (oldrk[sa[i]] == oldrk[sa[i-1]] && oldrk[sa[i]+w] == oldrk[sa[i-1]+w]) rk[sa[i]] = p;
-                else rk[sa[i]] = ++p;
-            if (p == n) break;
+        int[] Sub(int[] s, int len, int sig) {
+            int n = len - 1;
+            bool[] type = new bool[n+1]; // true: S, false: L
+            int[] name = new int[n+1], sa = new int[n+1];
+            int[] b = new int[sig+1], lb = new int[sig+1], sb = new int[sig+1];
+            for (int i = 0; i <= n; ++i) b[s[i]]++;
+            for (int i = 1; i <= sig; ++i) {
+                b[i] += b[i-1];
+                lb[i] = b[i-1];
+                sb[i] = b[i] - 1;
+            }
+            type[n] = true;
+            for (int i = n - 1; i >= 0; --i) {
+                if (s[i] < s[i+1]) type[i] = true;
+                else if (s[i] == s[i+1]) type[i] = type[i+1];
+            }
+            var pos = Enumerable.Range(1, n).Where(i => IsLMS(i)).ToArray();
+            int cnt = pos.Length;
+            Array.Fill(sa, -1);
+            for (int i = 0; i < cnt; ++i) sa[sb[s[pos[i]]]--] = pos[i];
+            InducedSort();
+            Array.Fill(name, -1);
+            int last = -1, names = 1;
+            bool rep = false;
+            for (int i = 1; i <= n; ++i) {
+                int x = sa[i];
+                if (IsLMS(x)) {
+                    if (last >= 0 && !SubstringEqual(x, last)) ++names;
+                    if (last >= 0 && names == name[last]) rep = true;
+                    name[x] = names;
+                    last = x;
+                }
+            }
+            name[n] = 0;
+
+            var s1 = name.Where(na => na >= 0).ToArray();
+            int[] sa1;
+            if (!rep) {
+                sa1 = new int[cnt+1];
+                for (int i = 0; i < cnt; ++i) sa1[s1[i]] = i;
+            } else sa1 = Sub(s1, cnt, names);
+            lb[0] = sb[0] = 0;
+            for (int i = 1; i <= sig; ++i) {
+                lb[i] = b[i-1]; sb[i] = b[i] - 1;
+            }
+            Array.Fill(sa, -1);
+            for (int i = cnt - 1; i >= 0; --i) sa[sb[s[pos[sa1[i]]]]--] = pos[sa1[i]];
+            InducedSort();
+            return sa;
+
+            bool IsLMS(int i) => i > 0 && type[i] && !type[i-1];
+            bool SubstringEqual(int i, int j) {
+                do {
+                    if (s[i] != s[j]) return false;
+                    ++i; ++j;
+                } while (!IsLMS(i) && !IsLMS(j));
+                return s[i] == s[j];
+            }
+            void InducedSort() {
+                for (int i = 0; i <= n; ++i) if (sa[i] > 0 && !type[sa[i]-1]) sa[lb[s[sa[i]-1]]++] = sa[i] - 1;
+                for (int i = 1; i <= sig; ++i) sb[i] = b[i] - 1;
+                for (int i = n; i >= 0; --i) if (sa[i] > 0 && type[sa[i]-1]) sa[sb[s[sa[i]-1]]--] = sa[i] - 1;
+            }
         }
-        return (sa[1..(n+1)].Select(x => x - 1).ToArray(), rk[1..(n+1)].Select(x => x - 1).ToArray());
     }
 
     public static (int[], int[], int[]) GetHeight(this string s) {
-        var (sa, rk) = s.GetSuffixArray();
+        var sa = s.SAIS(26, c => c - 'a')[1..^0];
         int n = s.Length;
-        int[] h = new int[n];
+        int[] h = new int[n], rk = new int[n];
+        for (int i = 0; i < n; ++i) rk[sa[i]] = i;
         for (int i = 0, k = 0; i < s.Length; ++i) if (rk[i] != 0) {
             if (k > 0) --k;
             try {
