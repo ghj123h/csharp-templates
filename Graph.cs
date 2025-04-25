@@ -31,8 +31,10 @@ public class Graph {
         e[cnt] = new Edge { From = u, To = v, Weight = w };
     }
 
-    public IEnumerable<Edge> GetSon(int u) {
-        for (int v = head[u]; v >= 0; v = next[v]) yield return e[v];
+    public IEnumerable<Edge> this[int u] {
+        get {
+            for (int v = head[u]; v >= 0; v = next[v]) yield return e[v];
+        }
     }
 
     public int[] Dijkstra(int u) {

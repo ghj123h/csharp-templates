@@ -1,95 +1,227 @@
-public class SimpleSegTree<TValue, TInfo> {
-    private TInfo[] tree;
-    private int n;
-    private Func<TValue, int, TInfo> init;
-    private TInfo eps;
-    private Func<TInfo, TInfo, TInfo> merge;
-
-    private void Build(TValue[] arr, int v, int l, int r) {
-        if (l == r) tree[v] = init(arr[l], l);
-        else {
-            int m = l + (r - l) / 2;
-            Build(arr, v * 2 + 1, l, m);
-            Build(arr, v * 2 + 2, m + 1, r);
-            tree[v] = merge(tree[v*2+1], tree[v*2+2]);
+public class SegTree<S> {
+    private S[] d;
+    private int n, size, log;
+    private Func<S, S, S> op;
+    private Func<S> e;
+    private void Update(int i) => d[i] = op(d[i<<1], d[i<<1|1]);
+    public SegTree(int n, Func<S, S, S> op, Func<S> e) : this(Enumerable.Repeat(e(), n).ToArray(), op, e) { }
+    public SegTree(IList<S> v, Func<S, S, S> op, Func<S> e) {
+        n = v.Count;
+        this.op = op;
+        this.e = e;
+        log = 0;
+        while ((1 << log) < n) ++log;
+        size = 1 << log;
+        d = new S[size << 1];
+        Array.Fill(d, e());
+        for (int i = 0; i < n; ++i) d[size+i] = v[i];
+        for (int i = size - 1; i >= 1; --i) Update(i);
+    }
+    public void Set(int p, S x) {
+        p += size;
+        d[p] = x;
+        for (int i = 1; i <= log; i++) Update(p >> i);
+    }
+    public S Get(int p) {
+        return d[p+size];
+    }
+    public S Prod(int l, int r) {
+        S sml = e(), smr = e();
+        l += size;
+        r += size;
+        while (l < r) {
+            if ((l & 1) == 1) sml = op(sml, d[l++]);
+            if ((r & 1) == 1) smr = op(d[--r], smr);
+            l >>= 1;
+            r >>= 1;
         }
+        return op(sml, smr);
     }
-    private void Update(int v, int i, int l, int r, TValue value) {
-        if (l == r && i == l) tree[v] = init(value, i);
-        else {
-            int m = l + (r - l) / 2;
-            if (i <= m) Update(v * 2 + 1, i, l, m, value);
-            else Update(v * 2 + 2, i, m + 1, r, value);
-            tree[v] = merge(tree[v*2+1], tree[v*2+2]);
-        }
+    public S AllProd() => d[1];
+    public int MaxRight(int l, Func<S, bool> f) {
+        if (l == n) return n;
+        l += size;
+        S sm = e();
+        do {
+            while (l % 2 == 0) l >>= 1;
+            if (!f(op(sm, d[l]))) {
+                while (l < size) {
+                    l = (2 * l);
+                    if (f(op(sm, d[l]))) {
+                        sm = op(sm, d[l]);
+                        ++l;
+                    }
+                }
+                return l - size;
+            }
+            sm = op(sm, d[l]);
+            l++;
+        } while ((l & -l) != l);
+        return n;
     }
-    private TInfo Query(int v, int L, int R, int l, int r) {
-        if (L > R) return eps;
-        else if (l >= L && r <= R) return tree[v];
-        int m = l + (r - l) / 2;
-        TInfo left = Query(v * 2 + 1, L, Math.Min(R, m), l, m);
-        TInfo right = Query(v * 2 + 2, Math.Max(L, m + 1), R, m + 1, r);
-        return merge(left, right);
+    public int MinLeft(int r, Func<S, bool> f) {
+        if (r == 0) return 0;
+        r += size;
+        S sm = e();
+        do {
+            r--;
+            while (r > 1 && r % 2 == 1) r >>= 1;
+            if (!f(op(d[r], sm))) {
+                while (r < size) {
+                    r = (2 * r + 1);
+                    if (f(op(d[r], sm))) {
+                        sm = op(d[r], sm);
+                        --r;
+                    }
+                }
+                return r + 1 - size;
+            }
+            sm = op(d[r], sm);
+        } while ((r & -r) != r);
+        return 0;
     }
-
-    public SimpleSegTree(TValue[] arr, Func<TInfo, TInfo, TInfo> merge, Func<TValue, int, TInfo> init, TInfo eps) {
-        n = arr.Length;
-        tree = new TInfo[n * 4];
-        this.merge = merge;
-        this.init = init;
-        this.eps = eps;
-        Build(arr, 0, 0, n - 1);
-    }
-    public void Update(int i, TValue value) => Update(0, i, 0, n - 1, value);
-    public TInfo Query(int L, int R) => Query(0, L, R, 0, n - 1);
 }
 
-public class LazySegTree {
-    private int[] tree, lazy;
-    private int n;
-
-    private void Build(int[] arr, int v, int l, int r) {
-        if (l == r) tree[v] = arr[l];
-        else {
-            int m = l + (r - l) / 2;
-            Build(arr, v * 2 + 1, l, m);
-            Build(arr, v * 2 + 2, m + 1, r);
-            tree[v] = Math.Max(tree[v*2+1], tree[v*2+2]);
+public class LazySegTree<S,F> {
+    private S[] d;
+    private F[] lz;
+    private int n, size, log;
+    private Func<S, S, S> op;
+    private Func<S> e;
+    private Func<F, F, F> composition;
+    private Func<F, S, S> mapping;
+    private Func<F> id;
+    private void Update(int i) => d[i] = op(d[i<<1], d[i<<1|1]);
+    private void AllApply(int k, F f) {
+        d[k] = mapping(f, d[k]);
+        if (k < size) lz[k] = composition(f, lz[k]);
+    }
+    private void Push(int k) {
+        AllApply(k << 1, lz[k]);
+        AllApply(k << 1 | 1, lz[k]);
+        lz[k] = id();
+    }
+    public LazySegTree(IList<S> v, Func<S, S, S> op, Func<S> e,
+        Func<F, F, F> composition, Func<F, S, S> mapping, Func<F> id) {
+        this.composition = composition;
+        this.mapping = mapping;
+        this.id = id;
+        n = v.Count;
+        this.op = op;
+        this.e = e;
+        log = 0;
+        while ((1 << log) < n) ++log;
+        size = 1 << log;
+        d = new S[size << 1]; lz = new F[size];
+        Array.Fill(d, e()); Array.Fill(lz, id());
+        for (int i = 0; i < n; ++i) d[size+i] = v[i];
+        for (int i = size - 1; i >= 1; --i) Update(i);
+    }
+    public LazySegTree(int n, Func<S, S, S> op, Func<S> e,
+        Func<F, F, F> composition, Func<F, S, S> mapping, Func<F> id)
+        : this(Enumerable.Repeat(e(), n).ToArray(), op, e, composition, mapping, id) {}
+    public void Set(int p, S x) {
+        p += size;
+        for (int i = log; i >= 1; --i) Push(p >> i);
+        d[p] = x;
+        for (int i = 1; i <= log; ++i) Update(p >> i);
+    }
+    public S Get(int p) {
+        p += size;
+        for (int i = log; i >= 1; i--) Push(p >> i);
+        return d[p];
+    }
+    public S Prod(int l, int r) {
+        if (l == r) return e();
+        l += size;
+        r += size;
+        for (int i = log; i >= 1; i--) {
+            if (((l >> i) << i) != l) Push(l >> i);
+            if (((r >> i) << i) != r) Push(r >> i);
+        }
+        S sml = e(), smr = e();
+        while (l < r) {
+            if (l % 2 == 1) sml = op(sml, d[l++]);
+            if (r % 2 == 1) smr = op(d[--r], smr);
+            l >>= 1;
+            r >>= 1;
+        }
+        return op(sml, smr);
+    }
+    public S AllProd() => d[1];
+    public void Apply(int p, F f) {
+        p += size;
+        for (int i = log; i >= 1; i--) Push(p >> i);
+        d[p] = mapping(f, d[p]);
+        for (int i = 1; i <= log; i++) Update(p >> i);
+    }
+    public void Apply(int l, int r, F f) {
+        if (l == r) return;
+        l += size;
+        r += size;
+        for (int i = log; i >= 1; i--) {
+            if (((l >> i) << i) != l) Push(l >> i);
+            if (((r >> i) << i) != r) Push((r - 1) >> i);
+        }
+        int l2 = l, r2 = r;
+        while (l < r) {
+            if (l % 2 == 1) AllApply(l++, f);
+            if (r % 2 == 1) AllApply(--r, f);
+            l >>= 1;
+            r >>= 1;
+        }
+        l = l2;
+        r = r2;
+        for (int i = 1; i <= log; i++) {
+            if (((l >> i) << i) != l) Update(l >> i);
+            if (((r >> i) << i) != r) Update((r - 1) >> i);
         }
     }
-    private void Push(int v) {
-        tree[v*2+1] += lazy[v]; lazy[v*2+1] += lazy[v];
-        tree[v*2+2] += lazy[v]; lazy[v*2+2] += lazy[v];
-        lazy[v] = 0;
-    }
-    private void Update(int v, int L, int R, int l, int r, int add) {
-        if (l >= L && r <= R) {
-            tree[v] += add;
-            lazy[v] += add;
-        } else if (L <= R) {
-            Push(v);
-            int m = l + (r - l) / 2;
-            Update(v * 2 + 1, L, Math.Min(R, m), l, m, add);
-            Update(v * 2 + 2, Math.Max(L, m + 1), R, m + 1, r, add);
-            tree[v] = Math.Max(tree[v*2+1], tree[v*2+2]);
-        }
-    }
-    private int Query(int v, int L, int R, int l, int r) {
-        if (L > R) return -0x3f3f3f3f;
-        else if (l >= L && r <= R) return tree[v];
-        Push(v);
-        int m = l + (r - l) / 2;
-        int left = Query(v * 2 + 1, L, Math.Min(R, m), l, m);
-        int right = Query(v * 2 + 2, Math.Max(L, m + 1), R, m + 1, r);
-        return Math.Max(left, right);
+    public int MaxRight(int l, Func<S, bool> g) {
+        if (l == n) return n;
+        l += size;
+        for (int i = log; i >= 1; i--) Push(l >> i);
+        S sm = e();
+        do {
+            while (l % 2 == 0) l >>= 1;
+            if (!g(op(sm, d[l]))) {
+                while (l < size) {
+                    Push(l);
+                    l = (2 * l);
+                    if (g(op(sm, d[l]))) {
+                        sm = op(sm, d[l]);
+                        l++;
+                    }
+                }
+                return l - size;
+            }
+            sm = op(sm, d[l]);
+            l++;
+        } while ((l & -l) != l);
+        return n;
     }
 
-    public LazySegTree(int[] arr) {
-        n = arr.Length;
-        tree = new int[n * 4]; lazy = new int[n * 4];
-        Build(arr, 0, 0, n - 1);
+    public int MinLeft(int r, Func<S, bool> g) {
+        if (r == 0) return 0;
+        r += size;
+        for (int i = log; i >= 1; i--) Push((r - 1) >> i);
+        S sm = e();
+        do {
+            r--;
+            while (r > 1 && r % 2 == 1) r >>= 1;
+            if (!g(op(d[r], sm))) {
+                while (r < size) {
+                    Push(r);
+                    r = (2 * r + 1);
+                    if (g(op(d[r], sm))) {
+                        sm = op(d[r], sm);
+                        r--;
+                    }
+                }
+                return r + 1 - size;
+            }
+            sm = op(d[r], sm);
+        } while ((r & -r) != r);
+        return 0;
     }
-    public void Update(int L, int R, int add) => Update(0, L, R, 0, n - 1, add);
-    public int Query(int L, int R) => Query(0, L, R, 0, n - 1);
 }
-

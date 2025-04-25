@@ -16,6 +16,8 @@ public class DisjointSet {
         y = Find(y);
         if (x != y) { fa[x] = y; --n; }
     }
+
+    public int this[int u] { get => Find(u); }
     public int Count { get => n; }
     public int Size(int x) { Update(); return fa.Where(t => t == fa[x]).Count(); }
 }

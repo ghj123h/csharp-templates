@@ -5,7 +5,8 @@ public class SparseTable {
     public SparseTable(int[] nums, Func<int, int, int> func) {
         this.func = func;
         int n = nums.Length;
-        logn = new int[n+1]; logn[1] = 0; logn[2] = 1;
+        logn = new int[n+1]; logn[1] = 0;
+        if (n > 1) logn[2] = 1;
         for (int i = 3; i <= n; ++i) logn[i] = logn[i/2] + 1;
         st = new int[n,21];
         for (int i = 0; i < n; ++i) st[i,0] = nums[i];
