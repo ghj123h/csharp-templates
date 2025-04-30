@@ -1,17 +1,17 @@
 public class Discrete<T> {
-    private List<T> list;
-    private IComparer<T> comparer;
-    public Discrete(IEnumerable<T> lst) : this(lst, null) {}
-    public Discrete(IEnumerable<T> lst, IComparer<T> comparer) {
-        this.list = lst.ToList();
+    private readonly List<T> list;
+    private readonly IComparer<T> comparer;
+    public Discrete(IEnumerable<T> elements) : this(elements, null) { }
+    public Discrete(IEnumerable<T> elements, IComparer<T> comparer) {
+        this.list = elements.ToList();
         this.comparer = comparer ?? Comparer<T>.Default;
         if (list.Count == 0) {
             throw new ArgumentException("You cannot discretize zero elements!");
         }
-        list.Sort(comparer);
+        list.Sort(this.comparer);
         int i, j;
         for (i = 0, j = 1; j < list.Count; ++j) {
-            if (comparer.Compare(list[i], list[j]) != 0) {
+            if (this.comparer.Compare(list[i], list[j]) != 0) {
                 list[++i] = list[j];
             }
         }
