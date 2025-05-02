@@ -10,7 +10,7 @@ namespace TemplateA {
         public void Solve() {
             
         }
-        private readonly BufferedReader br = new(Console.OpenStandardInput(), 0);
+        private readonly BufferedReader br = new(Console.OpenStandardInput(), 1 << 16);
         private readonly BufferedWriter bw = new();
         public void Main() {
             int T = 1;
@@ -114,7 +114,7 @@ namespace TemplateA {
             return res;
         }
         public void Dispose() {
-            sr.Dispose();
+            sr.Close();
         }
     }
 
@@ -138,7 +138,7 @@ namespace TemplateA {
             sb.Clear();
         }
         public void Dispose() {
-            sw.Dispose();
+            sw.Close();
         }
     }
 }
