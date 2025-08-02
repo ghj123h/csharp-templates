@@ -27,4 +27,6 @@ public class Graph<T> {
             for (int v = head[u]; v >= 0; v = e[v].Next) yield return e[v];
         }
     }
+
+    public int Count { get => n; }
 }

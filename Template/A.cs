@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Text;
 
 #if ONLINE_JUDGE
@@ -72,24 +73,24 @@ namespace TemplateA {
 
         public bool EndOfStream { get => buffer == null ? sr.EndOfStream : Peek() == -1; }
 
-        public T ReadInt<T>() {
+        public T ReadInt<T>() where T: INumber<T> {
             char c;
-            dynamic res = default(T);
-            dynamic sign = 1;
+            T res = default;
+            T sign = T.CreateChecked(1);
             while (!EndOfStream && char.IsWhiteSpace((char)Peek())) Read();
             if (!EndOfStream && (char)Peek() == '-') {
                 Read();
-                sign = -1;
+                sign = T.CreateChecked(-1);
             }
             while (!EndOfStream && char.IsDigit((char)Peek())) {
                 c = (char)Read();
-                res = res * 10 + c - '0';
+                res = res * T.CreateChecked(10) + T.CreateChecked(c - '0');
             }
             return res * sign;
         }
 
-        public T[] ReadArray<T>(int count) => ReadArray<T>(count, 0);
-        public T[] ReadArray<T>(int count, int startIndex) {
+        public T[] ReadArray<T>(int count) where T: INumber<T> => ReadArray<T>(count, 0);
+        public T[] ReadArray<T>(int count, int startIndex) where T: INumber<T> {
             T[] arr = new T[count + startIndex];
             for (int i = 0; i < count; ++i) arr[i + startIndex] = ReadInt<T>();
             return arr;
